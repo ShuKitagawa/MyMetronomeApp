@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>メトロノーム＆レコーダー</title>
+  
+  <!-- PWA & iOS Safari 設定 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#121212">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="メトロノーム">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --card-border: #2a2a2a;
+      --text-main: #f5f6fa;
+      --text-muted: #888888;
+      --accent-first: #ff4757;   /* 1拍目アクセント (赤) */
+      --accent-beat: #1e90ff;    /* 通常拍 (青) */
+      --btn-primary: #3742fa;
+      --btn-primary-hover: #5352ed;
+      --btn-danger: #ff4757;
+      --btn-danger-hover: #ff6b81;
+      --btn-success: #2ed573;
+      --btn-dark: #2f3542;
+      --btn-dark-hover: #404652;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px env(safe-area-inset-bottom, 24px) 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header {
+      text-align: center;
+      padding-top: env(safe-area-inset-top, 10px);
+    }
+
+    header h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #ffffff;
+      text-transform: uppercase;
+    }
+
+    header p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* カード共通スタイル */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* ─── メトロノームセクション ─── */
+    .bpm-display-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 0;
+    }
+
+    .bpm-value {
+      font-size: 4.8rem;
+      font-weight: 800;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      color: #ffffff;
+      letter-spacing: -2px;
+    }
+
+    .bpm-unit {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      margin-top: 4px;
+    }
+
+    /* スライダー */
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 10px;
+      background: #2a2a2a;
+      border-radius: 5px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--btn-primary);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      border: 2px solid #ffffff;
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:active {
+      transform: scale(1.15);
+    }
+
+    /* BPM微調整ボタン */
+    .bpm-buttons-group {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .btn-step {
+      background-color: var(--btn-dark);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 10px 0;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.15s, transform 0.1s;
+    }
+
+    .btn-step:active {
+      transform: scale(0.95);
+      background-color: var(--btn-dark-hover);
+    }
+
+    /* 拍子セレクター */
+    .time-signature-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #171717;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--card-border);
+    }
+
+    .time-signature-row label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    select {
+      background: transparent;
+      color: #ffffff;
+      border: none;
+      font-size: 1rem;
+      font-weight: 700;
+      outline: none;
+      cursor: pointer;
+      text-align-last: right;
+    }
+
+    select option {
+      background-color: var(--card-bg);
+      color: #ffffff;
+    }
+
+    /* ビートインジケーター */
+    .beat-indicators {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      min-height: 48px;
+      padding: 6px 0;
+    }
+
+    .beat-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background-color: #2a2a2a;
+      border: 2px solid #3a3a3a;
+      transition: background-color 0.05s, transform 0.08s, box-shadow 0.08s;
+    }
+
+    /* 1拍目アクセント点灯 */
+    .beat-dot.active-accent {
+      background-color: var(--accent-first);
+      border-color: #ffffff;
+      transform: scale(1.35);
+      box-shadow: 0 0 16px var(--accent-first);
+    }
+
+    /* 通常拍点灯 */
+    .beat-dot.active-normal {
+      background-color: var(--accent-beat);
+      border-color: #ffffff;
+      transform: scale(1.2);
+      box-shadow: 0 0 12px var(--accent-beat);
+    }
+
+    /* メインアクションボタン */
+    .btn-main {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ffffff;
+      background: var(--btn-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 4px 16px rgba(55, 66, 250, 0.4);
+    }
+
+    .btn-main:active {
+      transform: scale(0.98);
+    }
+
+    .btn-main.running {
+      background: var(--btn-danger);
+      box-shadow: 0 4px 16px rgba(255, 71, 87, 0.4);
+    }
+
+    /* ─── レコーダーセクション ─── */
+    .recorder-status-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 0;
+    }
+
+    .recording-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .record-led {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #555555;
+    }
+
+    .recording .record-led {
+      background-color: var(--btn-danger);
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.3; transform: scale(0.9); }
+      100% { opacity: 1; transform: scale(1.2); }
+    }
+
+    .recording-timer {
+      font-size: 2.2rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #ffffff;
+      letter-spacing: 1px;
+    }
+
+    .recorder-controls {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .btn-record {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ffffff;
+      background: var(--btn-dark);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+
+    .btn-record.idle {
+      background: #2ed573;
+      color: #121212;
+      box-shadow: 0 4px 14px rgba(46, 213, 115, 0.3);
+    }
+
+    .btn-record.active {
+      background: var(--btn-danger);
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(255, 71, 87, 0.4);
+    }
+
+    .btn-record:active {
+      transform: scale(0.98);
+    }
+
+    /* オーディオプレイヤー */
+    .player-area {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      background-color: #171717;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--card-border);
+    }
+
+    .player-area.visible {
+      display: flex;
+    }
+
+    .player-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    audio {
+      width: 100%;
+      height: 40px;
+      outline: none;
+      border-radius: 6px;
+    }
+
+    .player-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn-download {
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .btn-download:hover {
+      background: #2a2a2a;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #555555;
+      margin-top: 10px;
+    }
+
+    /* エラー通知 */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ff4757;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Metronome & Recorder</h1>
+      <p>オフライン対応 練習用メトロノーム＆高音質レコーダー</p>
+    </header>
+
+    <!-- セクション1：メトロノームコントロール -->
+    <section class="card" aria-label="メトロノーム">
+      <div class="card-title">
+        <span>Metronome</span>
+        <span id="tempoName" style="font-size: 0.8rem; color: #888;">Moderato</span>
+      </div>
+
+      <div class="bpm-display-area">
+        <div class="bpm-value" id="bpmDisplay">120</div>
+        <div class="bpm-unit">BPM</div>
+      </div>
+
+      <!-- ビートインジケーター（点灯ドット群） -->
+      <div class="beat-indicators" id="beatIndicators">
+        <!-- JSで拍子数に応じて動的生成 -->
+      </div>
+
+      <!-- スライダー -->
+      <div class="slider-container">
+        <input type="range" id="bpmSlider" min="40" max="240" value="120" step="1" aria-label="BPM スライダー">
+      </div>
+
+      <!-- 微調整ボタン -->
+      <div class="bpm-buttons-group">
+        <button type="button" class="btn-step" data-change="-5">-5</button>
+        <button type="button" class="btn-step" data-change="-1">-1</button>
+        <button type="button" class="btn-step" data-change="1">+1</button>
+        <button type="button" class="btn-step" data-change="5">+5</button>
+      </div>
+
+      <!-- 拍子選択プルダウン -->
+      <div class="time-signature-row">
+        <label for="timeSignatureSelect">拍子 (Time Signature)</label>
+        <select id="timeSignatureSelect">
+          <option value="4" selected>4/4 拍子</option>
+          <option value="3">3/4 拍子</option>
+          <option value="2">2/4 拍子</option>
+          <option value="6">6/8 拍子</option>
+          <option value="1">拍子なし（均等音）</option>
+        </select>
+      </div>
+
+      <!-- メトロノーム開始/停止トグルボタン -->
+      <button type="button" class="btn-main" id="btnMetronomeToggle">
+        <svg id="iconPlay" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+        <svg id="iconStop" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+          <path d="M6 6h12v12H6z"/>
+        </svg>
+        <span id="labelMetronomeToggle">スタート</span>
+      </button>
+    </section>
+
+    <!-- セクション2：レコーダーコントロール -->
+    <section class="card" aria-label="レコーダー">
+      <div class="card-title">
+        <span>Recorder</span>
+        <span style="font-size: 0.75rem; color: #888;">Direct Mic Input</span>
+      </div>
+
+      <div class="recorder-status-area" id="recorderStatusArea">
+        <div class="recording-indicator" id="recordingIndicator">
+          <div class="record-led"></div>
+          <span id="recordingStatusText">待機中</span>
+        </div>
+        <div class="recording-timer" id="recordingTimer">00:00</div>
+      </div>
+
+      <div class="recorder-controls">
+        <button type="button" class="btn-record idle" id="btnRecordToggle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="8"/>
+          </svg>
+          <span id="labelRecordToggle">録音開始</span>
+        </button>
+      </div>
+
+      <!-- 録音結果再生用 audio プレイヤー -->
+      <div class="player-area" id="playerArea">
+        <div class="player-label">
+          <span>録音した音声</span>
+          <a id="btnDownload" class="btn-download" download="practice_recording.mp4">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            保存
+          </a>
+        </div>
+        <audio id="audioPlayer" controls preload="metadata"></audio>
+      </div>
+    </section>
+
+    <footer>
+      オフラインPWA対応 &bull; Web Audio API & MediaRecorder
+    </footer>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    /* ==========================================================
+       1. 状態管理 & 要素参照
+       ========================================================== */
+    const state = {
+      bpm: 120,
+      beatsPerBar: 4,      // 4/4=4, 3/4=3, 2/4=2, 6/8=6, なし=1
+      isPlaying: false,
+      isRecording: false,
+      recordStartTime: 0,
+      recordTimerInterval: null,
+      mediaStream: null,
+      mediaRecorder: null,
+      recordedChunks: []
+    };
+
+    // DOM 要素
+    const bpmDisplay = document.getElementById('bpmDisplay');
+    const bpmSlider = document.getElementById('bpmSlider');
+    const tempoName = document.getElementById('tempoName');
+    const timeSignatureSelect = document.getElementById('timeSignatureSelect');
+    const beatIndicatorsContainer = document.getElementById('beatIndicators');
+    const btnMetronomeToggle = document.getElementById('btnMetronomeToggle');
+    const iconPlay = document.getElementById('iconPlay');
+    const iconStop = document.getElementById('iconStop');
+    const labelMetronomeToggle = document.getElementById('labelMetronomeToggle');
+    const stepButtons = document.querySelectorAll('.btn-step');
+
+    const recorderStatusArea = document.getElementById('recorderStatusArea');
+    const recordingStatusText = document.getElementById('recordingStatusText');
+    const recordingTimer = document.getElementById('recordingTimer');
+    const btnRecordToggle = document.getElementById('btnRecordToggle');
+    const labelRecordToggle = document.getElementById('labelRecordToggle');
+    const playerArea = document.getElementById('playerArea');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const btnDownload = document.getElementById('btnDownload');
+    const toast = document.getElementById('toast');
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    /* ==========================================================
+       2. Web Audio API メトロノーム機構
+       ========================================================== */
+    let audioCtx = null;
+    let nextNoteTime = 0.0;
+    let currentBeatInBar = 0;
+    let timerID = null;
+    const lookahead = 25.0;         // タイマー呼び出し頻度 (ms)
+    const scheduleAheadTime = 0.1;  // スケジュール先行時間 (秒)
+    const notesInQueue = [];        // 視覚的ビート同期用キュー
+
+    function initAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function getTempoName(bpm) {
+      if (bpm < 60) return 'Largo';
+      if (bpm < 66) return 'Larghetto';
+      if (bpm < 76) return 'Adagio';
+      if (bpm < 108) return 'Andante';
+      if (bpm < 120) return 'Moderato';
+      if (bpm < 168) return 'Allegro';
+      if (bpm < 200) return 'Presto';
+      return 'Prestissimo';
+    }
+
+    function updateBpm(newBpm) {
+      state.bpm = Math.max(40, Math.min(240, Number(newBpm)));
+      bpmDisplay.textContent = state.bpm;
+      bpmSlider.value = state.bpm;
+      tempoName.textContent = getTempoName(state.bpm);
+    }
+
+    function updateBeatIndicatorsUI() {
+      beatIndicatorsContainer.innerHTML = '';
+      const count = state.beatsPerBar === 1 ? 1 : state.beatsPerBar;
+      for (let i = 0; i < count; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'beat-dot';
+        dot.dataset.beatIndex = i;
+        beatIndicatorsContainer.appendChild(dot);
+      }
+    }
+
+    function nextNote() {
+      const secondsPerBeat = 60.0 / state.bpm;
+      nextNoteTime += secondsPerBeat;
+      currentBeatInBar++;
+      if (currentBeatInBar >= state.beatsPerBar) {
+        currentBeatInBar = 0;
+      }
+    }
+
+    function scheduleNote(beatNumber, time) {
+      // 描画キューに追加（音と視覚インジケータを同期）
+      notesInQueue.push({ beat: beatNumber, time: time });
+
+      // 発音処理
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      // 拍子なし(1)の場合はすべて通常音(800Hz)。それ以外で1拍目の場合はアクセント(1000Hz)
+      const isAccent = (state.beatsPerBar > 1 && beatNumber === 0);
+      osc.frequency.setValueAtTime(isAccent ? 1000 : 800, time);
+
+      // エンベロープ: 0.04秒の持続、指数減衰でクリック音生成
+      gainNode.gain.setValueAtTime(1.0, time);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      osc.start(time);
+      osc.stop(time + 0.04);
+    }
+
+    function scheduler() {
+      while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+        scheduleNote(currentBeatInBar, nextNoteTime);
+        nextNote();
+      }
+    }
+
+    // 視覚的インジケータ描画ループ (requestAnimationFrame)
+    function visualSyncLoop() {
+      if (state.isPlaying && audioCtx) {
+        const currentTime = audioCtx.currentTime;
+        while (notesInQueue.length > 0 && notesInQueue[0].time <= currentTime) {
+          const current = notesInQueue.shift();
+          flashBeatDot(current.beat);
+        }
+      }
+      requestAnimationFrame(visualSyncLoop);
+    }
+    requestAnimationFrame(visualSyncLoop);
+
+    function flashBeatDot(beatIndex) {
+      const dots = beatIndicatorsContainer.querySelectorAll('.beat-dot');
+      dots.forEach((d, idx) => {
+        d.classList.remove('active-accent', 'active-normal');
+        if (idx === beatIndex) {
+          const isAccent = (state.beatsPerBar > 1 && beatIndex === 0);
+          d.classList.add(isAccent ? 'active-accent' : 'active-normal');
+        }
+      });
+
+      // 少し経過したら消灯
+      setTimeout(() => {
+        dots.forEach(d => d.classList.remove('active-accent', 'active-normal'));
+      }, 100);
+    }
+
+    function startMetronome() {
+      initAudioContext();
+      state.isPlaying = true;
+      currentBeatInBar = 0;
+      nextNoteTime = audioCtx.currentTime + 0.05;
+      timerID = setInterval(scheduler, lookahead);
+
+      btnMetronomeToggle.classList.add('running');
+      iconPlay.style.display = 'none';
+      iconStop.style.display = 'block';
+      labelMetronomeToggle.textContent = 'ストップ';
+    }
+
+    function stopMetronome() {
+      state.isPlaying = false;
+      if (timerID) {
+        clearInterval(timerID);
+        timerID = null;
+      }
+      notesInQueue.length = 0;
+
+      const dots = beatIndicatorsContainer.querySelectorAll('.beat-dot');
+      dots.forEach(d => d.classList.remove('active-accent', 'active-normal'));
+
+      btnMetronomeToggle.classList.remove('running');
+      iconPlay.style.display = 'block';
+      iconStop.style.display = 'none';
+      labelMetronomeToggle.textContent = 'スタート';
+    }
+
+    // イベントリスナー: BPMスライダー & ボタン
+    bpmSlider.addEventListener('input', (e) => updateBpm(e.target.value));
+    
+    stepButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const change = parseInt(btn.dataset.change, 10);
+        updateBpm(state.bpm + change);
+      });
+    });
+
+    timeSignatureSelect.addEventListener('change', (e) => {
+      state.beatsPerBar = parseInt(e.target.value, 10);
+      currentBeatInBar = 0;
+      updateBeatIndicatorsUI();
+    });
+
+    btnMetronomeToggle.addEventListener('click', () => {
+      if (state.isPlaying) {
+        stopMetronome();
+      } else {
+        startMetronome();
+      }
+    });
+
+    /* ==========================================================
+       3. 演奏レコーダー機構 (MediaRecorder API)
+       ========================================================== */
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    async function startRecording() {
+      try {
+        // iOSエコー対策 & 原音キャプチャ設定
+        const constraints = {
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        state.mediaStream = stream;
+
+        // MIMEタイプの決定（Safari / Chrome / Firefox 対応）
+        let options = {};
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' };
+        } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options = { mimeType: 'audio/webm;codecs=opus' };
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' };
+        }
+
+        const mediaRecorder = new MediaRecorder(stream, options);
+        state.mediaRecorder = mediaRecorder;
+        state.recordedChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            state.recordedChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const mimeType = mediaRecorder.mimeType || 'audio/mp4';
+          const blob = new Blob(state.recordedChunks, { type: mimeType });
+          const audioURL = URL.createObjectURL(blob);
+
+          audioPlayer.src = audioURL;
+          btnDownload.href = audioURL;
+          
+          const ext = mimeType.includes('webm') ? 'webm' : 'mp4';
+          btnDownload.download = `practice_${new Date().toISOString().slice(0,19).replace(/[-:]/g,'')}.${ext}`;
+
+          playerArea.classList.add('visible');
+
+          // ストリームトラックを停止
+          if (state.mediaStream) {
+            state.mediaStream.getTracks().forEach(track => track.stop());
+            state.mediaStream = null;
+          }
+        };
+
+        mediaRecorder.start(100); // 100msごとにデータを収集
+
+        state.isRecording = true;
+        state.recordStartTime = Date.now();
+
+        // UI更新
+        recorderStatusArea.classList.add('recording');
+        recordingStatusText.textContent = '録音中...';
+        btnRecordToggle.className = 'btn-record active';
+        labelRecordToggle.textContent = '録音停止';
+
+        // タイマー開始
+        recordingTimer.textContent = '00:00';
+        state.recordTimerInterval = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - state.recordStartTime) / 1000);
+          recordingTimer.textContent = formatTime(elapsed);
+        }, 1000);
+
+      } catch (err) {
+        console.error('マイクアクセス失敗:', err);
+        showToast('マイクのアクセスが拒否されたか、利用できません。');
+      }
+    }
+
+    function stopRecording() {
+      if (!state.isRecording || !state.mediaRecorder) return;
+
+      state.mediaRecorder.stop();
+      state.isRecording = false;
+
+      if (state.recordTimerInterval) {
+        clearInterval(state.recordTimerInterval);
+        state.recordTimerInterval = null;
+      }
+
+      // UI更新
+      recorderStatusArea.classList.remove('recording');
+      recordingStatusText.textContent = '録音完了';
+      btnRecordToggle.className = 'btn-record idle';
+      labelRecordToggle.textContent = '録音開始';
+    }
+
+    btnRecordToggle.addEventListener('click', () => {
+      if (state.isRecording) {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    });
+
+    /* ==========================================================
+       4. Service Worker 登録 (オフラインキャッシュ)
+       ========================================================== */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('ServiceWorker 登録完了:', reg.scope))
+          .catch(err => console.log('ServiceWorker 登録失敗:', err));
+      });
+    }
+
+    // 初期化実行
+    updateBpm(120);
+    updateBeatIndicatorsUI();
+  </script>
+</body>
+</html>
