@@ -1,4 +1,31 @@
+# OS 一時ファイル
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# エディタ・IDE 設定
+.vscode/
+.idea/
+*.swp
+*~
+
+# 依存パッケージ・ログ
 node_modules/
 *.log
+
+# 環境変数・秘密鍵・認証情報（万が一の配置時も防止）
+.env
+.env.*
+*.pem
+*.key
+*.cert
+
+# 録音テストデータ・音声/動画ファイル（個人演奏データの誤コミット防止）
+*.wav
+*.mp3
+*.m4a
+*.webm
+*.ogg
+*.aac
+*.mp4
